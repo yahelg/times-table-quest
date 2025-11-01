@@ -146,20 +146,20 @@
       if(q.mode==='quiz'){
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none');
         big.textContent = `${q.a} × ${q.b}`;
-        const row = el('div','flex w-full max-w-sm items-center gap-2');
-        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='Your answer';
-        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700','Check');
+        const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='Your answer';
+        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700 w-full sm:w-auto','Check');
         btn.addEventListener('click',()=>{ sClick(); check(input1.value); });
         row.append(input1, btn);
         wrap.append(big,row);
       } else {
         const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = `Find two numbers (1…${maxNum}) that multiply to`;
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none'); big.textContent = q.n;
-        const row = el('div','flex w-full max-w-sm items-center gap-2');
-        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
-        const times = el('span','text-xl opacity-60','×');
-        input2 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input2.type='text'; input2.inputMode='numeric'; input2.placeholder='Second factor';
-        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700','Check');
+        const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
+        const times = el('span','flex-shrink-0 text-xl opacity-60','×');
+        input2 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input2.type='text'; input2.inputMode='numeric'; input2.placeholder='Second factor';
+        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700 w-full sm:w-auto','Check');
         btn.addEventListener('click',()=>{ sClick(); check([input1.value,input2.value]); });
         row.append(input1,times,input2,btn);
         wrap.append(small,big,row);
