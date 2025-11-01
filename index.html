@@ -101,6 +101,7 @@
     let maxNum = 10;
     let factorRate = 30;
     const EASY_OVERALL_RATE = 10; // percent of total questions reserved for easy drills
+    const pairKey = (a,b)=> a<=b ? `${a}x${b}` : `${b}x${a}`;
     let q = null;
     let score = 0, streak = 0, total = 0;
     const history = [];
@@ -134,11 +135,11 @@
       const seen = new Set();
       const addPair = (a,b)=>{
         if(a>limit || b>limit) return;
-        const sorted = a<=b ? [a,b] : [b,a];
-        const key = `${sorted[0]}x${sorted[1]}`;
+        const key = pairKey(a,b);
         if(seen.has(key)) return;
         seen.add(key);
-        pairs.push({a:sorted[0], b:sorted[1]});
+        const low = Math.min(a,b), high = Math.max(a,b);
+        pairs.push({a:low, b:high});
       };
 
       for(let n=1; n<=limit; n++){
@@ -166,6 +167,22 @@
 
     function pickEasyQuizPair(limit){
       const basePairs = collectEasyPairs(limit);
+      if(basePairs.length===0) return null;
+      const pair = basePairs[Math.floor(Math.random()*basePairs.length)];
+      if(pair.a===pair.b || Math.random()<0.5) return pair;
+      return { a: pair.b, b: pair.a };
+    }
+
+    function pickNonEasyQuizPair(limit){
+      const easyKeys = new Set(collectEasyPairs(limit).map(p=>pairKey(p.a, p.b)));
+      const basePairs = [];
+      for(let a=1; a<=limit; a++){
+        for(let b=a; b<=limit; b++){
+          if(!easyKeys.has(pairKey(a,b))){
+            basePairs.push({a,b});
+          }
+        }
+      }
       if(basePairs.length===0) return null;
       const pair = basePairs[Math.floor(Math.random()*basePairs.length)];
       if(pair.a===pair.b || Math.random()<0.5) return pair;
@@ -205,6 +222,16 @@
         if(easy){
           return { mode:'quiz', a: easy.a, b: easy.b };
         }
+      }
+
+      const hard = pickNonEasyQuizPair(maxNum);
+      if(hard){
+        return { mode:'quiz', a: hard.a, b: hard.b };
+      }
+
+      const fallbackEasy = pickEasyQuizPair(maxNum);
+      if(fallbackEasy){
+        return { mode:'quiz', a: fallbackEasy.a, b: fallbackEasy.b };
       }
 
       return { mode:'quiz', a: randInt(1,maxNum), b: randInt(1,maxNum) };
