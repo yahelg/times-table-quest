@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Times Table Quest — Timed</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --glass: rgba(255,255,255,.75) }
+    .card { backdrop-filter: blur(8px); background: var(--glass) }
+    .blob { filter: blur(40px); opacity:.35 }
+    @media (max-width: 640px) {
+      #questionWrap .flex { flex-wrap: wrap; }
+      #questionWrap button { width: 100%; margin-top: 0.5rem; }
+    }
+    .pill { padding: .25rem .6rem; border-radius: 9999px; font-weight: 700; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 relative overflow-hidden">
+  <div aria-hidden class="pointer-events-none absolute inset-0">
+    <div class="blob absolute -left-20 top-10 w-[34rem] h-[34rem] rounded-full bg-blue-400/40 animate-pulse"></div>
+    <div class="blob absolute right-[-10%] top-[-5%] w-[26rem] h-[26rem] rounded-full bg-emerald-400/40 animate-[pulse_3s_ease-in-out_infinite]"></div>
+    <div class="blob absolute right-[5%] bottom-[5%] w-[30rem] h-[30rem] rounded-full bg-fuchsia-400/30 animate-[pulse_4s_ease-in-out_infinite]"></div>
+  </div>
+
+  <div class="mx-auto max-w-5xl px-4 py-8 relative">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-3">
+        <svg class="w-7 h-7 text-blue-600" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M11 2a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0V2Zm8.07 3.93a1 1 0 0 1 0 1.41l-2.12 2.12a1 1 0 1 1-1.41-1.41l2.12-2.12a1 1 0 0 1 1.41 0ZM2 11a1 1 0 1 1 0 2h3a1 1 0 1 1 0-2H2Zm16.95 9.66a1 1 0 0 1-1.4 0l-2.13-2.12a1 1 0 1 1 1.41-1.41l2.12 2.12a1 1 0 0 1 0 1.41ZM20.99 11a1 1 0 1 1 0 2h-3a1 1 0 1 1 0-2h3ZM7.58 6.46a1 1 0 0 1 0 1.41L5.46 9.99a1 1 0 1 1-1.41-1.41l2.12-2.12a1 1 0 0 1 1.41 0Z"/>
+        </svg>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Times Table Quest</h1>
+        <span id="rangeBadge" class="ml-1 text-xs px-2 py-1 rounded bg-slate-900 text-white">1…10</span>
+        <span id="modeBadge" class="ml-2 text-xs px-2 py-1 rounded bg-indigo-600 text-white">Practice</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnNew" class="px-3 h-10 rounded-xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700">New</button>
+        <button id="btnReset" class="px-3 h-10 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300">Reset</button>
+      </div>
+    </header>
+
+    <div class="grid gap-6 md:grid-cols-[2fr,1fr] md:auto-rows-min">
+      <section class="card rounded-2xl shadow-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-lg font-semibold">Score: <span id="score">0</span></div>
+          <div class="text-sm flex items-center gap-3">
+            <span>Streak: <b id="streak">0</b></span>
+            <span>• Total: <b id="total">0</b></span>
+            <span class="hidden sm:inline">•</span>
+            <span class="pill bg-slate-900 text-white flex items-center gap-2">
+              <span id="timerIcon">⏱️</span>
+              <span id="timer">02:00</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <button id="btnStartChallenge" class="px-3 h-10 rounded-xl bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700">Start 2‑minute Challenge</button>
+          <span id="challengeStats" class="text-sm text-slate-700 hidden">Correct: <b id="chalCorrect">0</b> • Attempts: <b id="chalTotal">0</b> • Accuracy: <b id="chalAcc">0%</b></span>
+        </div>
+
+        <div id="questionWrap" class="p-2 flex flex-col items-center gap-4 min-h-[180px] justify-center text-center"></div>
+        <div class="mt-4 flex items-center justify-center">
+          <div id="feedback" class="text-base font-semibold"></div>
+        </div>
+      </section>
+
+      <section class="card rounded-2xl shadow-lg p-4 md:self-start">
+        <h2 class="font-semibold mb-2">Recent Answers</h2>
+        <ul id="history" class="space-y-2 text-sm text-slate-700">
+          <li class="text-slate-500">No answers yet. Try one!</li>
+        </ul>
+      </section>
+
+      <section class="card rounded-2xl shadow-lg p-4 md:col-start-1" id="settingsCard">
+        <h2 class="font-semibold mb-3">Settings</h2>
+        <label class="block text-sm mb-1">Practice range (max table): <b id="lblMax">10</b></label>
+        <input id="rngMax" type="range" min="5" max="12" step="1" value="10" class="w-full mb-4" />
+        <label class="block text-sm mb-1">Factor challenges: <b id="lblFactor">30%</b></label>
+        <input id="rngFactor" type="range" min="0" max="80" step="5" value="30" class="w-full" />
+        <p class="mt-3 text-xs text-slate-500">Settings are locked during timed challenge.</p>
+      </section>
+    </div>
+
+    <footer class="mt-8 text-center text-xs text-slate-600">
+      Tip: <kbd class="px-1 py-0.5 rounded border">Enter</kbd> = submit, <kbd class="px-1 py-0.5 rounded border">R</kbd> = new.
+    </footer>
+  </div>
+
+  <script>
+    const $ = (s, root=document) => root.querySelector(s);
+    const el = (tag, cls="", html="") => { const n=document.createElement(tag); if(cls) n.className=cls; if(html) n.innerHTML=html; return n; };
+
+    const fmtTime = (t)=>{
+      const m = Math.floor(t/60), s = t%60;
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    };
+
+    const randInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+
+    let maxNum = 10;
+    let factorRate = 30;
+    let q = null;
+    let score = 0, streak = 0, total = 0;
+    const history = [];
+
+    // Timed challenge state
+    let challengeActive = false;
+    let timeLeft = 120; // seconds
+    let timerId = null;
+    let chalCorrect = 0, chalTotal = 0;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep({freq=440, dur=0.12, type='sine', vol=0.3, when=0}){
+      const t = audioCtx.currentTime + when;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(vol, t+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t+dur);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t); osc.stop(t+dur);
+    }
+    function sClick(){ beep({freq:520, dur:0.07, type:'triangle', vol:0.15}); }
+    function sCorrect(){ [523,659,784].forEach((f,i)=>beep({freq:f, dur:0.12, type:'sine', vol:0.25, when:i*0.08})); }
+    function sWrong(){ beep({freq:160, dur:0.12, type:'sawtooth', vol:0.25}); beep({freq:140, dur:0.12, type:'sawtooth', vol:0.25, when:0.08}); }
+    function sStart(){ [392,523].forEach((f,i)=>beep({freq:f, dur:0.12, type:'triangle', vol:0.25, when:i*0.1})); }
+    function sEnd(){ [330,294,262].forEach((f,i)=>beep({freq:f, dur:0.18, type:'sine', vol:0.28, when:i*0.12})); }
+
+    function makeQuestion(){
+      const doFactors = Math.random()*100 < factorRate;
+      if(doFactors){
+        const a = randInt(1,maxNum), b = randInt(1,maxNum);
+        return { mode:'factors', n: a*b };
+      } else {
+        return { mode:'quiz', a: randInt(1,maxNum), b: randInt(1,maxNum) };
+      }
+    }
+
+    function renderQuestion(){
+      const wrap = $('#questionWrap');
+      wrap.innerHTML = '';
+      let input1, input2;
+
+      if(q.mode==='quiz'){
+        const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none');
+        big.textContent = `${q.a} × ${q.b}`;
+        const row = el('div','flex w-full max-w-sm items-center gap-2');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='Your answer';
+        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700','Check');
+        btn.addEventListener('click',()=>{ sClick(); check(input1.value); });
+        row.append(input1, btn);
+        wrap.append(big,row);
+      } else {
+        const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = `Find two numbers (1…${maxNum}) that multiply to`;
+        const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none'); big.textContent = q.n;
+        const row = el('div','flex w-full max-w-sm items-center gap-2');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
+        const times = el('span','text-xl opacity-60','×');
+        input2 = el('input','border rounded-xl h-12 px-3 text-lg grow'); input2.type='text'; input2.inputMode='numeric'; input2.placeholder='Second factor';
+        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700','Check');
+        btn.addEventListener('click',()=>{ sClick(); check([input1.value,input2.value]); });
+        row.append(input1,times,input2,btn);
+        wrap.append(small,big,row);
+      }
+
+      setTimeout(()=> input1 && input1.focus(), 10);
+      $('#feedback').textContent='';
+    }
+
+    function pushHistory(text, ok){
+      history.unshift({text, ok});
+      if(history.length>12) history.pop();
+      const ul = $('#history');
+      ul.innerHTML='';
+      history.forEach(h=>{
+        const li = el('li','flex items-center gap-2');
+        const dot = el('span',`h-2.5 w-2.5 rounded-full ${h.ok?'bg-emerald-500':'bg-rose-500'}`);
+        const tx = el('span','',h.text);
+        li.append(dot,tx); ul.append(li);
+      });
+      if(history.length===0){ ul.innerHTML='<li class="text-slate-500">No answers yet. Try one!</li>'; }
+    }
+
+    function setFeedback(text, ok){
+      const f = $('#feedback');
+      f.textContent = text;
+      f.className = `text-base font-semibold ${ok?'text-emerald-700':'text-rose-700'}`;
+    }
+
+    function nextQuestion(){
+      q = makeQuestion();
+      renderQuestion();
+    }
+
+    function updateTimerUI(){
+      $('#timer').textContent = fmtTime(timeLeft);
+      const badge = $('#modeBadge');
+      badge.textContent = challengeActive ? 'Timed' : 'Practice';
+      $('#challengeStats').classList.toggle('hidden', !challengeActive && chalTotal===0);
+      $('#chalCorrect').textContent = chalCorrect;
+      $('#chalTotal').textContent = chalTotal;
+      const acc = chalTotal ? Math.round((chalCorrect/chalTotal)*100) : 0;
+      $('#chalAcc').textContent = acc + '%';
+    }
+
+    function startChallenge(){
+      if(challengeActive) return;
+      challengeActive = true;
+      timeLeft = 120;
+      chalCorrect = 0; chalTotal = 0;
+      $('#settingsCard').querySelectorAll('input').forEach(i=>i.disabled=true);
+      $('#btnStartChallenge').disabled = true;
+      setFeedback('Go!', true);
+      sStart();
+      updateTimerUI();
+      nextQuestion();
+      timerId = setInterval(()=>{
+        timeLeft -= 1;
+        updateTimerUI();
+        if(timeLeft<=0){ endChallenge(); }
+      }, 1000);
+    }
+
+    function endChallenge(){
+      if(timerId){ clearInterval(timerId); timerId = null; }
+      challengeActive = false;
+      $('#settingsCard').querySelectorAll('input').forEach(i=>i.disabled=false);
+      $('#btnStartChallenge').disabled = false;
+      sEnd();
+      const acc = chalTotal ? Math.round((chalCorrect/chalTotal)*100) : 0;
+      setFeedback(`Time! Correct: ${chalCorrect}/${chalTotal} (${acc}%)`, true);
+    }
+
+    function check(val){
+      total += 1; $('#total').textContent = total;
+      let ok=false, text='';
+
+      if(q.mode==='quiz'){
+        const correct = q.a*q.b;
+        const v = parseInt(val,10);
+        ok = !Number.isNaN(v) && v===correct;
+        text = `${q.a} × ${q.b} = ${v}${ok? ' ✅' : ` ❌ (=${correct})`}`;
+      } else {
+        const [s1,s2] = val;
+        const v1=parseInt(s1,10), v2=parseInt(s2,10);
+        ok = [v1,v2].every(v=>!Number.isNaN(v) && v>=1 && v<=maxNum) && v1*v2===q.n;
+        text = `${v1} × ${v2} ${ok?'=':'≠'} ${q.n}${ok?' ✅':' ❌'}`;
+      }
+
+      if(ok){ score+=10; streak+=1; setFeedback(challengeActive ? '✓' : 'Great!', true); sCorrect(); if(challengeActive) chalCorrect+=1; }
+      else { score=Math.max(0, score-2); streak=0; setFeedback(challengeActive ? '×' : 'Try the next one!', false); sWrong(); }
+
+      if(challengeActive) chalTotal += 1;
+      $('#score').textContent=score; $('#streak').textContent=streak;
+      pushHistory(text, ok);
+      if(challengeActive){ updateTimerUI(); }
+      setTimeout(nextQuestion, ok ? 500 : 700);
+    }
+
+    $('#btnNew').addEventListener('click', ()=>{ sClick(); nextQuestion(); });
+    $('#btnReset').addEventListener('click', ()=>{
+      sClick(); score=0; streak=0; total=0; history.length=0;
+      $('#score').textContent=0; $('#streak').textContent=0; $('#total').textContent=0;
+      $('#history').innerHTML='<li class="text-slate-500">No answers yet. Try one!</li>';
+      setFeedback('', true);
+    });
+    $('#btnStartChallenge').addEventListener('click', startChallenge);
+
+    const rngMax = $('#rngMax');
+    const rngFactor = $('#rngFactor');
+    rngMax.addEventListener('input', ()=>{
+      maxNum = parseInt(rngMax.value,10);
+      $('#lblMax').textContent=maxNum;
+      $('#rangeBadge').textContent=`1…${maxNum}`;
+      if(!challengeActive) nextQuestion();
+    });
+    rngFactor.addEventListener('input', ()=>{
+      factorRate = parseInt(rngFactor.value,10);
+      $('#lblFactor').textContent=`${factorRate}%`;
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        const inputs = $('#questionWrap').querySelectorAll('input');
+        if(q.mode==='quiz') check(inputs[0]?.value || '');
+        else check([inputs[0]?.value||'', inputs[1]?.value||'']);
+      }
+      if(e.key.toLowerCase()==='r' && !challengeActive) nextQuestion();
+    });
+
+    // Init
+    $('#timer').textContent = fmtTime(timeLeft);
+    $('#challengeStats').classList.add('hidden');
+    nextQuestion();
+  </script>
+</body>
+</html>
