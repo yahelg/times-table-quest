@@ -100,6 +100,7 @@
 
     let maxNum = 10;
     let factorRate = 30;
+    const EASY_OVERALL_RATE = 10; // percent of total questions reserved for easy drills
     let q = null;
     let score = 0, streak = 0, total = 0;
     const history = [];
@@ -128,14 +129,72 @@
     function sStart(){ [392,523].forEach((f,i)=>beep({freq:f, dur:0.12, type:'triangle', vol:0.25, when:i*0.1})); }
     function sEnd(){ [330,294,262].forEach((f,i)=>beep({freq:f, dur:0.18, type:'sine', vol:0.28, when:i*0.12})); }
 
+    function collectEasyPairs(limit){
+      const pairs = [];
+      const seen = new Set();
+      const addPair = (a,b)=>{
+        if(a>limit || b>limit) return;
+        const sorted = a<=b ? [a,b] : [b,a];
+        const key = `${sorted[0]}x${sorted[1]}`;
+        if(seen.has(key)) return;
+        seen.add(key);
+        pairs.push({a:sorted[0], b:sorted[1]});
+      };
+
+      for(let n=1; n<=limit; n++){
+        addPair(1, n);
+      }
+
+      if(limit>=10){
+        for(let n=1; n<=limit; n++){
+          addPair(10, n);
+        }
+      }
+
+      if(limit>=2){
+        for(let n=1; n<=Math.min(5, limit); n++){
+          addPair(2, n);
+        }
+      }
+
+      if(limit>=3){
+        addPair(3,3);
+      }
+
+      return pairs;
+    }
+
+    function pickEasyQuizPair(limit){
+      const basePairs = collectEasyPairs(limit);
+      if(basePairs.length===0) return null;
+      const pair = basePairs[Math.floor(Math.random()*basePairs.length)];
+      if(pair.a===pair.b || Math.random()<0.5) return pair;
+      return { a: pair.b, b: pair.a };
+    }
+
+    function shouldUseEasyQuiz(){
+      const nonFactorShare = 100 - factorRate;
+      if(nonFactorShare<=0) return false;
+      const easyQuizPercent = Math.min(100, (EASY_OVERALL_RATE / nonFactorShare) * 100);
+      return Math.random()*100 < easyQuizPercent;
+    }
+
     function makeQuestion(){
       const doFactors = Math.random()*100 < factorRate;
       if(doFactors){
-        const a = randInt(1,maxNum), b = randInt(1,maxNum);
+        const maxFactor = Math.max(1, Math.min(maxNum, 9));
+        const a = randInt(1,maxFactor), b = randInt(1,maxFactor);
         return { mode:'factors', n: a*b };
-      } else {
-        return { mode:'quiz', a: randInt(1,maxNum), b: randInt(1,maxNum) };
       }
+
+      if(shouldUseEasyQuiz()){
+        const easy = pickEasyQuizPair(maxNum);
+        if(easy){
+          return { mode:'quiz', a: easy.a, b: easy.b };
+        }
+      }
+
+      return { mode:'quiz', a: randInt(1,maxNum), b: randInt(1,maxNum) };
     }
 
     function renderQuestion(){
@@ -153,7 +212,7 @@
         row.append(input1, btn);
         wrap.append(big,row);
       } else {
-        const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = `Find two numbers (1…${maxNum}) that multiply to`;
+        const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = 'Find two numbers less than 10 that multiply to';
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none'); big.textContent = q.n;
         const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap');
         input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
@@ -236,6 +295,9 @@
     function check(val){
       total += 1; $('#total').textContent = total;
       let ok=false, text='';
+      let factorAttempt = false;
+      let inputsValid = true;
+      let underTen = true;
 
       if(q.mode==='quiz'){
         const correct = q.a*q.b;
@@ -243,14 +305,27 @@
         ok = !Number.isNaN(v) && v===correct;
         text = `${q.a} × ${q.b} = ${v}${ok? ' ✅' : ` ❌ (=${correct})`}`;
       } else {
+        factorAttempt = true;
         const [s1,s2] = val;
         const v1=parseInt(s1,10), v2=parseInt(s2,10);
-        ok = [v1,v2].every(v=>!Number.isNaN(v) && v>=1 && v<=maxNum) && v1*v2===q.n;
+        inputsValid = [v1,v2].every(v=>!Number.isNaN(v));
+        const withinPracticeRange = inputsValid && [v1,v2].every(v=>v>=1 && v<=maxNum);
+        underTen = inputsValid && [v1,v2].every(v=>v<10);
+        if(inputsValid && !underTen){
+          setFeedback('Factors must be less than 10.', false);
+        }
+        ok = inputsValid && withinPracticeRange && underTen && v1*v2===q.n;
         text = `${v1} × ${v2} ${ok?'=':'≠'} ${q.n}${ok?' ✅':' ❌'}`;
       }
 
       if(ok){ score+=10; streak+=1; setFeedback(challengeActive ? '✓' : 'Great!', true); sCorrect(); if(challengeActive) chalCorrect+=1; }
-      else { score=Math.max(0, score-2); streak=0; setFeedback(challengeActive ? '×' : 'Try the next one!', false); sWrong(); }
+      else {
+        score=Math.max(0, score-2); streak=0;
+        if(!(factorAttempt && inputsValid && !underTen)){
+          setFeedback(challengeActive ? '×' : 'Try the next one!', false);
+        }
+        sWrong();
+      }
 
       if(challengeActive) chalTotal += 1;
       $('#score').textContent=score; $('#streak').textContent=streak;
