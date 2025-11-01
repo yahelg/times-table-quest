@@ -183,8 +183,21 @@
       const doFactors = Math.random()*100 < factorRate;
       if(doFactors){
         const maxFactor = Math.max(1, Math.min(maxNum, 9));
-        const a = randInt(1,maxFactor), b = randInt(1,maxFactor);
-        return { mode:'factors', n: a*b };
+        const products = [];
+        const seen = new Set();
+        for(let a=1; a<=maxFactor; a++){
+          for(let b=1; b<=maxFactor; b++){
+            const product = a*b;
+            if(product>=10 && !seen.has(product)){
+              seen.add(product);
+              products.push(product);
+            }
+          }
+        }
+        if(products.length){
+          const n = products[randInt(0, products.length-1)];
+          return { mode:'factors', n };
+        }
       }
 
       if(shouldUseEasyQuiz()){
@@ -293,11 +306,8 @@
     }
 
     function check(val){
-      total += 1; $('#total').textContent = total;
       let ok=false, text='';
-      let factorAttempt = false;
-      let inputsValid = true;
-      let underTen = true;
+      let v1=null, v2=null;
 
       if(q.mode==='quiz'){
         const correct = q.a*q.b;
@@ -305,25 +315,36 @@
         ok = !Number.isNaN(v) && v===correct;
         text = `${q.a} × ${q.b} = ${v}${ok? ' ✅' : ` ❌ (=${correct})`}`;
       } else {
-        factorAttempt = true;
-        const [s1,s2] = val;
-        const v1=parseInt(s1,10), v2=parseInt(s2,10);
-        inputsValid = [v1,v2].every(v=>!Number.isNaN(v));
-        const withinPracticeRange = inputsValid && [v1,v2].every(v=>v>=1 && v<=maxNum);
-        underTen = inputsValid && [v1,v2].every(v=>v<10);
-        if(inputsValid && !underTen){
-          setFeedback('Factors must be less than 10.', false);
+        const [raw1,raw2] = val;
+        const s1 = String(raw1 ?? '').trim();
+        const s2 = String(raw2 ?? '').trim();
+        if(!s1 || !s2){
+          setFeedback('Enter two numbers.', false);
+          return;
         }
-        ok = inputsValid && withinPracticeRange && underTen && v1*v2===q.n;
+        v1 = parseInt(s1,10); v2 = parseInt(s2,10);
+        if([v1,v2].some(Number.isNaN)){
+          setFeedback('Enter two numbers.', false);
+          return;
+        }
+        if([v1,v2].some(v=>v>=10)){
+          setFeedback('Factors must be less than 10.', false);
+          return;
+        }
+        const maxAllowed = Math.max(1, Math.min(maxNum, 9));
+        if([v1,v2].some(v=>v<1 || v>maxAllowed)){
+          setFeedback(`Use numbers between 1 and ${maxAllowed}.`, false);
+          return;
+        }
+        ok = v1*v2===q.n;
         text = `${v1} × ${v2} ${ok?'=':'≠'} ${q.n}${ok?' ✅':' ❌'}`;
       }
 
+      total += 1; $('#total').textContent = total;
       if(ok){ score+=10; streak+=1; setFeedback(challengeActive ? '✓' : 'Great!', true); sCorrect(); if(challengeActive) chalCorrect+=1; }
       else {
         score=Math.max(0, score-2); streak=0;
-        if(!(factorAttempt && inputsValid && !underTen)){
-          setFeedback(challengeActive ? '×' : 'Try the next one!', false);
-        }
+        setFeedback(challengeActive ? '×' : 'Try the next one!', false);
         sWrong();
       }
 
