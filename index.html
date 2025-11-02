@@ -77,7 +77,9 @@
         <label class="block text-sm mb-1">Practice range (max table): <b id="lblMax">10</b></label>
         <input id="rngMax" type="range" min="5" max="12" step="1" value="10" class="w-full mb-4" />
         <label class="block text-sm mb-1">Factor challenges: <b id="lblFactor">30%</b></label>
-        <input id="rngFactor" type="range" min="0" max="80" step="5" value="30" class="w-full" />
+        <input id="rngFactor" type="range" min="0" max="80" step="5" value="30" class="w-full mb-4" />
+        <label class="block text-sm mb-1">Easy question chance: <b id="lblEasy">10%</b></label>
+        <input id="rngEasy" type="range" min="0" max="100" step="5" value="10" class="w-full" />
         <p class="mt-3 text-xs text-slate-500">Settings are locked during timed challenge.</p>
       </section>
     </div>
@@ -100,7 +102,7 @@
 
     let maxNum = 10;
     let factorRate = 30;
-    const EASY_OVERALL_RATE = 10; // percent of total questions reserved for easy drills
+    let easyRate = 10;
     const pairKey = (a,b)=> a<=b ? `${a}x${b}` : `${b}x${a}`;
     let q = null;
     let score = 0, streak = 0, total = 0;
@@ -135,106 +137,101 @@
       const seen = new Set();
       const addPair = (a,b)=>{
         if(a>limit || b>limit) return;
-        const key = pairKey(a,b);
+        const low = Math.min(a,b), high = Math.max(a,b);
+        const key = pairKey(low, high);
         if(seen.has(key)) return;
         seen.add(key);
-        const low = Math.min(a,b), high = Math.max(a,b);
-        pairs.push({a:low, b:high});
+        pairs.push([low, high]);
       };
 
       for(let n=1; n<=limit; n++){
         addPair(1, n);
+        addPair(n, 10);
       }
 
-      if(limit>=10){
-        for(let n=1; n<=limit; n++){
-          addPair(10, n);
-        }
-      }
-
-      if(limit>=2){
-        for(let n=1; n<=Math.min(5, limit); n++){
-          addPair(2, n);
-        }
-      }
-
-      if(limit>=3){
-        addPair(3,3);
-      }
+      [[2,2],[2,3],[2,4],[2,5],[3,3]].forEach(([a,b])=>addPair(a,b));
 
       return pairs;
     }
 
-    function pickEasyQuizPair(limit){
-      const basePairs = collectEasyPairs(limit);
-      if(basePairs.length===0) return null;
-      const pair = basePairs[Math.floor(Math.random()*basePairs.length)];
-      if(pair.a===pair.b || Math.random()<0.5) return pair;
-      return { a: pair.b, b: pair.a };
-    }
-
-    function pickNonEasyQuizPair(limit){
-      const easyKeys = new Set(collectEasyPairs(limit).map(p=>pairKey(p.a, p.b)));
-      const basePairs = [];
+    function collectHardPairs(limit){
+      const easy = new Set(collectEasyPairs(limit).map(([a,b])=>pairKey(a,b)));
+      const pairs = [];
       for(let a=1; a<=limit; a++){
         for(let b=a; b<=limit; b++){
-          if(!easyKeys.has(pairKey(a,b))){
-            basePairs.push({a,b});
+          const key = pairKey(a,b);
+          if(!easy.has(key)){
+            pairs.push([a,b]);
           }
         }
       }
-      if(basePairs.length===0) return null;
-      const pair = basePairs[Math.floor(Math.random()*basePairs.length)];
-      if(pair.a===pair.b || Math.random()<0.5) return pair;
-      return { a: pair.b, b: pair.a };
+      return pairs;
     }
 
-    function shouldUseEasyQuiz(){
-      const nonFactorShare = 100 - factorRate;
-      if(nonFactorShare<=0) return false;
-      const easyQuizPercent = Math.min(100, (EASY_OVERALL_RATE / nonFactorShare) * 100);
-      return Math.random()*100 < easyQuizPercent;
+    function pickPair(pairs, randomizeOrientation=true){
+      if(!pairs.length) return null;
+      const [baseA, baseB] = pairs[Math.floor(Math.random()*pairs.length)];
+      let a = baseA, b = baseB;
+      if(randomizeOrientation && a!==b && Math.random()<0.5){
+        a = baseB; b = baseA;
+      }
+      return { a, b, base:[baseA, baseB] };
+    }
+
+    function factorEligiblePairs(pairs, maxFactor){
+      return pairs.filter(([a,b])=>a<=maxFactor && b<=maxFactor && a*b>=10);
+    }
+
+    function makeQuizQuestion(limit, useEasy){
+      const easy = collectEasyPairs(limit);
+      const hard = collectHardPairs(limit);
+      const all = easy.concat(hard);
+      const primary = useEasy ? easy : hard;
+      let pick = pickPair(primary, true);
+      if(!pick){
+        pick = pickPair(useEasy ? hard : easy, true);
+      }
+      if(!pick){
+        pick = pickPair(all, true);
+      }
+      if(!pick){
+        const a = randInt(1, limit);
+        const b = randInt(1, limit);
+        return { a, b };
+      }
+      return { a: pick.a, b: pick.b };
+    }
+
+    function makeFactorQuestion(limit, useEasy){
+      const easy = factorEligiblePairs(collectEasyPairs(limit), limit);
+      const hard = factorEligiblePairs(collectHardPairs(limit), limit);
+      const all = easy.concat(hard);
+      const primary = useEasy ? easy : hard;
+      let pick = pickPair(primary, false);
+      if(!pick){
+        pick = pickPair(useEasy ? hard : easy, false);
+      }
+      if(!pick){
+        pick = pickPair(all, false);
+      }
+      if(!pick){
+        return null;
+      }
+      return { n: pick.base[0] * pick.base[1] };
     }
 
     function makeQuestion(){
+      const useEasy = Math.random()*100 < easyRate;
       const doFactors = Math.random()*100 < factorRate;
       if(doFactors){
-        const maxFactor = Math.max(1, Math.min(maxNum, 9));
-        const products = [];
-        const seen = new Set();
-        for(let a=1; a<=maxFactor; a++){
-          for(let b=1; b<=maxFactor; b++){
-            const product = a*b;
-            if(product>=10 && !seen.has(product)){
-              seen.add(product);
-              products.push(product);
-            }
-          }
-        }
-        if(products.length){
-          const n = products[randInt(0, products.length-1)];
-          return { mode:'factors', n };
+        const maxFactor = Math.max(2, Math.min(maxNum, 9));
+        const factorQ = makeFactorQuestion(maxFactor, useEasy);
+        if(factorQ){
+          return { mode:'factors', ...factorQ };
         }
       }
-
-      if(shouldUseEasyQuiz()){
-        const easy = pickEasyQuizPair(maxNum);
-        if(easy){
-          return { mode:'quiz', a: easy.a, b: easy.b };
-        }
-      }
-
-      const hard = pickNonEasyQuizPair(maxNum);
-      if(hard){
-        return { mode:'quiz', a: hard.a, b: hard.b };
-      }
-
-      const fallbackEasy = pickEasyQuizPair(maxNum);
-      if(fallbackEasy){
-        return { mode:'quiz', a: fallbackEasy.a, b: fallbackEasy.b };
-      }
-
-      return { mode:'quiz', a: randInt(1,maxNum), b: randInt(1,maxNum) };
+      const quizQ = makeQuizQuestion(maxNum, useEasy);
+      return { mode:'quiz', ...quizQ };
     }
 
     function renderQuestion(){
@@ -393,6 +390,7 @@
 
     const rngMax = $('#rngMax');
     const rngFactor = $('#rngFactor');
+    const rngEasy = $('#rngEasy');
     rngMax.addEventListener('input', ()=>{
       maxNum = parseInt(rngMax.value,10);
       $('#lblMax').textContent=maxNum;
@@ -403,6 +401,12 @@
       factorRate = parseInt(rngFactor.value,10);
       $('#lblFactor').textContent=`${factorRate}%`;
     });
+    rngEasy.addEventListener('input', ()=>{
+      easyRate = parseInt(rngEasy.value,10);
+      $('#lblEasy').textContent=`${easyRate}%`;
+    });
+    easyRate = parseInt(rngEasy.value,10);
+    $('#lblEasy').textContent=`${easyRate}%`;
 
     document.addEventListener('keydown', (e)=>{
       if(e.key==='Enter'){
