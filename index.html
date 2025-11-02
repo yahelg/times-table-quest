@@ -82,6 +82,7 @@
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="tab">Tab</button>
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="del">Del</button>
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="0">0</button>
+          <button type="button" class="h-12 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 col-span-3" data-key="check">Check</button>
         </div>
       </section>
 
@@ -320,6 +321,22 @@
       setActiveInput(activeInputIndex + 1);
     }
 
+    function gatherInputValues(){
+      const nodes = $('#questionWrap').querySelectorAll('input');
+      return Array.from(nodes).map(inp=>inp.value ?? '');
+    }
+
+    function submitActiveInputs(){
+      if(!q) return;
+      if(q.mode==='quiz'){
+        const value = activeInputs[0]?.value ?? gatherInputValues()[0] ?? '';
+        check(value);
+      } else {
+        const vals = activeInputs.length ? activeInputs.map(inp=>inp?.value ?? '') : gatherInputValues();
+        check(vals);
+      }
+    }
+
     function renderQuestion(){
       const wrap = $('#questionWrap');
       wrap.innerHTML = '';
@@ -330,23 +347,19 @@
       if(q.mode==='quiz'){
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none');
         big.textContent = `${q.a} × ${q.b}`;
-        const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap');
-        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='Your answer';
-        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700 w-full sm:w-auto','Check');
-        btn.addEventListener('click',()=>{ sClick(); check(input1.value); });
-        row.append(input1, btn);
+        const row = el('div','flex w-full max-w-sm flex-wrap items-center justify-center gap-2');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0 text-center'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='Your answer';
+        row.append(input1);
         wrap.append(big,row);
         registerInputs([input1]);
       } else {
         const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = 'Find two numbers less than 10 that multiply to';
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none'); big.textContent = q.n;
-        const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap');
-        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
+        const row = el('div','flex w-full max-w-sm flex-wrap items-center gap-2 sm:flex-nowrap justify-center');
+        input1 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0 text-center'); input1.type='text'; input1.inputMode='numeric'; input1.placeholder='First factor';
         const times = el('span','flex-shrink-0 text-xl opacity-60','×');
-        input2 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0'); input2.type='text'; input2.inputMode='numeric'; input2.placeholder='Second factor';
-        const btn = el('button','h-12 px-6 rounded-xl bg-blue-600 text-white text-lg font-semibold hover:bg-blue-700 w-full sm:w-auto','Check');
-        btn.addEventListener('click',()=>{ sClick(); check([input1.value,input2.value]); });
-        row.append(input1,times,input2,btn);
+        input2 = el('input','border rounded-xl h-12 px-3 text-lg grow min-w-0 text-center'); input2.type='text'; input2.inputMode='numeric'; input2.placeholder='Second factor';
+        row.append(input1,times,input2);
         wrap.append(small,big,row);
         registerInputs([input1,input2]);
       }
@@ -508,6 +521,7 @@
         if(!key) return;
         if(key==='tab') return focusNextInput();
         if(key==='del') return clearActiveInput();
+        if(key==='check') return submitActiveInputs();
         appendToActiveInput(key);
       });
     }
