@@ -14,6 +14,7 @@
       #questionWrap button { width: 100%; margin-top: 0.5rem; }
     }
     .pill { padding: .25rem .6rem; border-radius: 9999px; font-weight: 700; }
+    .input-active { outline: 2px solid #2563eb; outline-offset: 2px; }
   </style>
 </head>
 <body class="min-h-screen bg-slate-50 relative overflow-hidden">
@@ -253,38 +254,57 @@
       return { mode:'quiz', ...quizQ };
     }
 
+    function updateInputHighlight(){
+      activeInputs.forEach((inp, idx)=>{
+        if(!inp) return;
+        inp.classList.toggle('input-active', idx===activeInputIndex);
+      });
+    }
+
+    function setActiveInput(idx, {focus=false}={}){
+      if(!activeInputs.length) return;
+      activeInputIndex = ((idx % activeInputs.length) + activeInputs.length) % activeInputs.length;
+      updateInputHighlight();
+      if(focus){
+        const input = activeInputs[activeInputIndex];
+        input.focus({ preventScroll: true });
+        const len = input.value.length;
+        if(typeof input.setSelectionRange === 'function'){
+          try { input.setSelectionRange(len, len); } catch(_){}
+        }
+      }
+    }
+
     function registerInputs(inputs){
       activeInputs = inputs.filter(Boolean);
       activeInputIndex = 0;
       activeInputs.forEach((inp, idx)=>{
-        inp.addEventListener('focus', ()=>{ activeInputIndex = idx; });
+        inp.addEventListener('focus', ()=>{ setActiveInput(idx, { focus:true }); });
+        inp.addEventListener('pointerdown', (e)=>{ e.preventDefault(); setActiveInput(idx); });
       });
+      updateInputHighlight();
     }
 
     function appendToActiveInput(char){
       if(activeInputs.length===0) return;
       const input = activeInputs[activeInputIndex];
-      input.focus();
-      const start = input.selectionStart ?? input.value.length;
-      const end = input.selectionEnd ?? input.value.length;
+      let start = input.selectionStart ?? input.value.length;
+      let end = input.selectionEnd ?? input.value.length;
+      if(document.activeElement !== input){
+        start = end = input.value.length;
+      }
       const nextValue = input.value.slice(0,start) + char + input.value.slice(end);
       input.value = nextValue;
       const pos = start + char.length;
       if(typeof input.setSelectionRange === 'function'){
-        input.setSelectionRange(pos, pos);
+        try { input.setSelectionRange(pos, pos); } catch(_){}
       }
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     function focusNextInput(){
       if(activeInputs.length<=1) return;
-      activeInputIndex = (activeInputIndex + 1) % activeInputs.length;
-      const input = activeInputs[activeInputIndex];
-      input.focus();
-      const len = input.value.length;
-      if(typeof input.setSelectionRange === 'function'){
-        input.setSelectionRange(len, len);
-      }
+      setActiveInput(activeInputIndex + 1);
     }
 
     function renderQuestion(){
@@ -318,7 +338,7 @@
         registerInputs([input1,input2]);
       }
 
-      setTimeout(()=> input1 && input1.focus(), 10);
+      setActiveInput(0);
       $('#feedback').textContent='';
     }
 
@@ -473,7 +493,6 @@
         e.preventDefault();
         const key = btn.dataset.key;
         if(!key) return;
-        sClick();
         if(key==='tab'){
           focusNextInput();
         } else {
