@@ -33,6 +33,7 @@
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Times Table Quest</h1>
         <span id="rangeBadge" class="ml-1 text-xs px-2 py-1 rounded bg-slate-900 text-white">1…10</span>
         <span id="modeBadge" class="ml-2 text-xs px-2 py-1 rounded bg-indigo-600 text-white">Practice</span>
+        <span id="versionBadge" class="ml-2 text-xs px-2 py-1 rounded bg-emerald-500 text-white">v0.2.0</span>
       </div>
       <div class="flex items-center gap-2">
         <button id="btnNew" class="px-3 h-10 rounded-xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700">New</button>
@@ -79,7 +80,8 @@
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="8">8</button>
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="9">9</button>
           <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="tab">Tab</button>
-          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300 col-span-2" data-key="0">0</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="del">Del</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="0">0</button>
         </div>
       </section>
 
@@ -121,6 +123,7 @@
     let maxNum = 10;
     let factorRate = 30;
     let easyRate = 10;
+    const APP_VERSION = '0.2.0';
     const pairKey = (a,b)=> a<=b ? `${a}x${b}` : `${b}x${a}`;
     let q = null;
     let score = 0, streak = 0, total = 0;
@@ -298,6 +301,16 @@
       const pos = start + char.length;
       if(typeof input.setSelectionRange === 'function'){
         try { input.setSelectionRange(pos, pos); } catch(_){}
+      }
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function clearActiveInput(){
+      if(activeInputs.length===0) return;
+      const input = activeInputs[activeInputIndex];
+      input.value = '';
+      if(typeof input.setSelectionRange === 'function'){
+        try { input.setSelectionRange(0, 0); } catch(_){}
       }
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -493,11 +506,9 @@
         e.preventDefault();
         const key = btn.dataset.key;
         if(!key) return;
-        if(key==='tab'){
-          focusNextInput();
-        } else {
-          appendToActiveInput(key);
-        }
+        if(key==='tab') return focusNextInput();
+        if(key==='del') return clearActiveInput();
+        appendToActiveInput(key);
       });
     }
 
@@ -512,6 +523,10 @@
 
     // Init
     $('#timer').textContent = fmtTime(timeLeft);
+    const badge = $('#versionBadge');
+    if(badge){
+      badge.textContent = `v${APP_VERSION}`;
+    }
     $('#challengeStats').classList.add('hidden');
     nextQuestion();
   </script>
