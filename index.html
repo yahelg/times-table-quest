@@ -65,7 +65,24 @@
         </div>
       </section>
 
-      <section class="card rounded-2xl shadow-lg p-4 md:self-start">
+      <section class="card rounded-2xl shadow-lg p-4 md:self-start" id="numpadCard">
+        <h2 class="font-semibold mb-2">Keypad</h2>
+        <div id="numpad" class="grid grid-cols-3 gap-2">
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="1">1</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="2">2</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="3">3</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="4">4</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="5">5</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="6">6</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="7">7</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="8">8</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="9">9</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300" data-key="tab">Tab</button>
+          <button type="button" class="h-12 rounded-xl bg-slate-200 font-semibold hover:bg-slate-300 col-span-2" data-key="0">0</button>
+        </div>
+      </section>
+
+      <section class="card rounded-2xl shadow-lg p-4 md:self-start md:col-start-2 md:row-start-2">
         <h2 class="font-semibold mb-2">Recent Answers</h2>
         <ul id="history" class="space-y-2 text-sm text-slate-700">
           <li class="text-slate-500">No answers yet. Try one!</li>
@@ -77,7 +94,7 @@
         <label class="block text-sm mb-1">Practice range (max table): <b id="lblMax">10</b></label>
         <input id="rngMax" type="range" min="5" max="12" step="1" value="10" class="w-full mb-4" />
         <label class="block text-sm mb-1">Factor challenges: <b id="lblFactor">30%</b></label>
-        <input id="rngFactor" type="range" min="0" max="80" step="5" value="30" class="w-full mb-4" />
+        <input id="rngFactor" type="range" min="0" max="100" step="5" value="30" class="w-full mb-4" />
         <label class="block text-sm mb-1">Easy question chance: <b id="lblEasy">10%</b></label>
         <input id="rngEasy" type="range" min="0" max="100" step="5" value="10" class="w-full" />
         <p class="mt-3 text-xs text-slate-500">Settings are locked during timed challenge.</p>
@@ -107,6 +124,8 @@
     let q = null;
     let score = 0, streak = 0, total = 0;
     const history = [];
+    let activeInputs = [];
+    let activeInputIndex = 0;
 
     // Timed challenge state
     let challengeActive = false;
@@ -234,10 +253,46 @@
       return { mode:'quiz', ...quizQ };
     }
 
+    function registerInputs(inputs){
+      activeInputs = inputs.filter(Boolean);
+      activeInputIndex = 0;
+      activeInputs.forEach((inp, idx)=>{
+        inp.addEventListener('focus', ()=>{ activeInputIndex = idx; });
+      });
+    }
+
+    function appendToActiveInput(char){
+      if(activeInputs.length===0) return;
+      const input = activeInputs[activeInputIndex];
+      input.focus();
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      const nextValue = input.value.slice(0,start) + char + input.value.slice(end);
+      input.value = nextValue;
+      const pos = start + char.length;
+      if(typeof input.setSelectionRange === 'function'){
+        input.setSelectionRange(pos, pos);
+      }
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function focusNextInput(){
+      if(activeInputs.length<=1) return;
+      activeInputIndex = (activeInputIndex + 1) % activeInputs.length;
+      const input = activeInputs[activeInputIndex];
+      input.focus();
+      const len = input.value.length;
+      if(typeof input.setSelectionRange === 'function'){
+        input.setSelectionRange(len, len);
+      }
+    }
+
     function renderQuestion(){
       const wrap = $('#questionWrap');
       wrap.innerHTML = '';
       let input1, input2;
+      activeInputs = [];
+      activeInputIndex = 0;
 
       if(q.mode==='quiz'){
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none');
@@ -248,6 +303,7 @@
         btn.addEventListener('click',()=>{ sClick(); check(input1.value); });
         row.append(input1, btn);
         wrap.append(big,row);
+        registerInputs([input1]);
       } else {
         const small = el('div','text-sm uppercase tracking-wide text-slate-600'); small.textContent = 'Find two numbers less than 10 that multiply to';
         const big = el('div','text-5xl sm:text-6xl font-black tracking-tight tabular-nums select-none'); big.textContent = q.n;
@@ -259,6 +315,7 @@
         btn.addEventListener('click',()=>{ sClick(); check([input1.value,input2.value]); });
         row.append(input1,times,input2,btn);
         wrap.append(small,big,row);
+        registerInputs([input1,input2]);
       }
 
       setTimeout(()=> input1 && input1.focus(), 10);
@@ -391,6 +448,7 @@
     const rngMax = $('#rngMax');
     const rngFactor = $('#rngFactor');
     const rngEasy = $('#rngEasy');
+    const numpad = $('#numpad');
     rngMax.addEventListener('input', ()=>{
       maxNum = parseInt(rngMax.value,10);
       $('#lblMax').textContent=maxNum;
@@ -407,6 +465,22 @@
     });
     easyRate = parseInt(rngEasy.value,10);
     $('#lblEasy').textContent=`${easyRate}%`;
+
+    if(numpad){
+      numpad.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button[data-key]');
+        if(!btn) return;
+        e.preventDefault();
+        const key = btn.dataset.key;
+        if(!key) return;
+        sClick();
+        if(key==='tab'){
+          focusNextInput();
+        } else {
+          appendToActiveInput(key);
+        }
+      });
+    }
 
     document.addEventListener('keydown', (e)=>{
       if(e.key==='Enter'){
